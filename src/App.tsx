@@ -5,11 +5,13 @@ import { User } from './types';
 type State = {
   searchQuery: string;
   currentUser: User | null;
+  error: string | null;
 };
 
 type Action =
   | { type: 'SET_SEARCH_QUERY'; payload: string }
-  | { type: 'SET_USER'; payload: User | null };
+  | { type: 'SET_USER'; payload: User | null }
+  | { type: 'SET_ERROR'; payload: string | null };
 
 const reducer = (state: State, action: Action) => {
   switch (action.type) {
@@ -17,23 +19,38 @@ const reducer = (state: State, action: Action) => {
       return {
         ...state,
         searchQuery: action.payload,
+        error: null,
       };
+
     case 'SET_USER':
       return {
         ...state,
         currentUser: action.payload,
       };
+
+    case 'SET_ERROR':
+      return {
+        ...state,
+        error: action.payload,
+        currentUser: null,
+      };
+
     default:
       return state;
   }
 };
+
 const App = () => {
   const [state, dispatch] = useReducer(reducer, {
     searchQuery: '',
     currentUser: null,
+    error: null,
   });
+
   const currentUser = state.currentUser;
   const searchQuery = state.searchQuery;
+  const error = state.error;
+
   useEffect(() => {
     const fetchFunc = async () => {
       if (!searchQuery) {
@@ -44,14 +61,30 @@ const App = () => {
 
         return;
       }
-      const response = await fetch(
-        `https://jsonplaceholder.typicode.com/users?username=${searchQuery}`
-      );
-      const resJson = await response.json();
-      dispatch({
-        type: 'SET_USER',
-        payload: resJson[0] ?? null,
-      });
+
+      try {
+        const response = await fetch(
+          `https://jsonplaceholder.typicode.com/users?username=${searchQuery}`
+        );
+
+        if (!response.ok) {
+          throw new Error('Ошибка при получении данных');
+        }
+
+        const resJson = await response.json();
+
+        dispatch({
+          type: 'SET_USER',
+          payload: resJson[0] ?? null,
+        });
+      } catch (error) {
+        console.error(error);
+
+        dispatch({
+          type: 'SET_ERROR',
+          payload: 'Не удалось выполнить поиск',
+        });
+      }
     };
 
     fetchFunc();
@@ -69,7 +102,10 @@ const App = () => {
           })
         }
       />
-      {currentUser ? (
+
+      {error ? (
+        <p>{error}</p>
+      ) : currentUser ? (
         <div>
           <h3>{currentUser.name}</h3>
           <h3>{currentUser.username}</h3>
